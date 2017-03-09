@@ -159,12 +159,12 @@ object GitSync {
     }
 
     if (!ok) {
-      info("Could not update remote refs.")
+      info("Could not update remote refs")
       return
     }
 
     val cleanTr = runGit("status", "--porcelain")
-    cleanTr.fold(_ => info("Could not determine status."), { s =>
+    cleanTr.fold(_ => info("Could not determine status"), { s =>
       if (s.trim.nonEmpty) info("State is dirty")
       else {
         val      listTr  = runGit("branch", "-vv", "--no-abbrev", "--no-color")
@@ -191,7 +191,7 @@ object GitSync {
 //            }
 
 
-        listTr.fold(_ => info("Could not determine branches."), { listS =>
+        listTr.fold(_ => info("Could not determine branches"), { listS =>
           listS.split('\n').filter(_.nonEmpty).foreach { ln =>
             // yeah, well, let's not getting into regex again
             val t1        = ln.substring(1).trim

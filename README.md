@@ -23,16 +23,23 @@ To get the options, simply type `sbt run`:
       -r, --ref-branches <name1>,<name2>...
                                Remote branches to compare against for local-only branches (default: master,work)
 
-So for example, to scan for all branches that are newer on local:
+So for example, to scan for all branches that are out of sync:
 
-    sbt "run -a -d ~/Documents/devel"
+    sbt "run -d ~/Documents/devel"
 
 The process may take a while, depending on the number of repositories found, the network speed, etc.
 The output might look like this:
 
+    AudioWidgets - Local branch 'foo' is behind
     GitSync - State is dirty
     LinuxConfig - Local branch 'master' is ahead
+    LostTrack - Could not update remove refs
     Mellite - Local branch 'column' is ahead
+
+In this example, the first line means, remote (origin) is ahead for the given branch.
+The second line means there are untracked files or uncommitted changes (you can find out by running `git status` within that repository).
+The third and fifth lines means local commits are ahead and haven't been pushed yet.
+The fourth line means it was not possible to determine the remote state (possibly the URL is outdated).
 
 ## contributing
 
