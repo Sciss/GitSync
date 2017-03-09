@@ -5,12 +5,14 @@
 
 ## statement
 
-GitSync is a small library to compare local and remote git repositories.
+GitSync is a small tool to compare local and remote git repositories.
 It is (C)opyright 2017 by Hanns Holger Rutz. All rights reserved. GitSync is released under the [GNU Lesser General Public License](https://raw.github.com/Sciss/GitSync/master/LICENSE) v2.1+ and comes with absolutely no warranties. To contact the author, send an email to `contact at sciss.de`.
 
 ## requirements / running
 
-This project compiles against Scala 2.12 using sbt 0.13.
+This project compiles against Scala 2.12 using sbt 0.13. It requires git 2.11 or newer being installed.
+GitSync does not _alter_ your git repositories in any way (except for running `git remote update`),
+it simply _lists_ things that are out of sync.
 
 To get the options, simply type `sbt run`:
 
