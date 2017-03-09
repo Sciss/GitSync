@@ -127,6 +127,8 @@ object GitSync {
     cf
   }
 
+  private val swallow = ProcessLogger(_ => ())
+
   /** This is the actual algorithm.
     *
     * We do the following:
@@ -145,8 +147,9 @@ object GitSync {
     */
   def check(config: Config, dir: File): Unit = {
     // inside the directory
-    def runGit(cmd: String*): Try[String] =
-      Process(Seq(git +: cmd: _*), dir).!?
+    def runGit(cmd: String*): Try[String] = {
+      Try(Process(Seq(git +: cmd: _*), dir).!!(swallow))
+    }
 
     val ok = runGit("remote", "update").isSuccess
 
@@ -165,10 +168,28 @@ object GitSync {
       if (s.trim.nonEmpty) info("State is dirty")
       else {
         val      listTr  = runGit("branch", "-vv", "--no-abbrev", "--no-color")
-        lazy val remotes = runGit("remote").fold[Seq[String]](
+//        lazy val remotes = runGit("remote").fold[Seq[String]](
+//          _ => { info("No remote repository found"); Nil },
+//          s =>  s.split('\n').filter(_.nonEmpty)
+//        )
+        lazy val remotes = runGit("branch", "-r", "--no-color").fold[Seq[String]](
           _ => { info("No remote repository found"); Nil },
-          s => s.split('\n').filter(_.nonEmpty)
+          s => {
+            // all will look like
+            // `Seq("origin/debug", "origin/master", "origin/plus_txn")`
+            val all = s.split('\n').filter(ln => ln.nonEmpty && !ln.contains("->")).map(_.trim)
+            all.filter { ref =>
+              config.mainBranches.exists(ref.contains)
+            }
+          }
         )
+
+//            val remotes =
+//            remotes.flatMap { remote =>
+//              // remoteBranch <- config.mainBranches
+//              git branch -r --no-color
+//            }
+
 
         listTr.fold(_ => info("Could not determine branches."), { listS =>
           listS.split('\n').filter(_.nonEmpty).foreach { ln =>
@@ -200,12 +221,7 @@ object GitSync {
               }
 
             } else {
-              val comp = for {
-                remote <- remotes
-                remoteBranch <- config.mainBranches
-              } yield s"$remote/$remoteBranch"
-
-              comp.exists { remoteRef =>
+              remotes.exists { remoteRef =>
                 val revList = s"$branch...$remoteRef"
                 val warnedAhead = !config.behindOnly && {
                   val aheadTr = runGit("rev-list", "--left-only", revList)
