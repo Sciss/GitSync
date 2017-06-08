@@ -286,7 +286,10 @@ object GitSync {
     def loopIgnored(dir1: File, depth: Int): Unit = {
       if (!seen.add(dir1)) return
 
-      val toCheck     = dir1.children(f => !config.omitIgnored.contains(f.name))
+      def removeExcluded(in: Vec[File]): Vec[File] =
+        in.filterNot(f => config.omitIgnored.contains(f.name))
+
+      val toCheck     = removeExcluded(dir1.children)
       val toCheckNames= toCheck.map(_.name).mkString("\n")
       val in          = new ByteArrayInputStream(toCheckNames.getBytes("UTF-8"))
       val out         = new ByteArrayOutputStream
@@ -299,17 +302,21 @@ object GitSync {
         Console.out.println(s"$dirR - $message")
       }
 
-      if (code == 0) {
-        val ignored = new String(out.toByteArray, "UTF-8").split("\n")
-        ignored.foreach { name =>
-          info(s"ignored: $name")
+      val ignored: Vec[File] = if (code == 0) {
+        val res = new String(out.toByteArray, "UTF-8").split("\n").toVector
+        res.map { name =>
+          val f = dir1 / name
+          if (!f.isDirectory || f.children.nonEmpty) info(s"ignored: $name")
+          f
         }
-
       } else if (code != 1) {
         info("Fatal error running git check-ignore")
+        Vector.empty
+      } else {
+        Vector.empty
       }
 
-      val children = nonGitChildDirectories(dir1)
+      val children = removeExcluded(nonGitChildDirectories(dir1)) diff ignored
       children.foreach { sub =>
         loopIgnored(dir1 = sub, depth = depth + 1)
       }
