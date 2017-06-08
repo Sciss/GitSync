@@ -1,4 +1,19 @@
+/*
+ *  GitSync.scala
+ *  (GitSync)
+ *
+ *  Copyright (c) 2017 Hanns Holger Rutz. All rights reserved.
+ *
+ *	This software is published under the GNU Lesser General Public License v2.1+
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.gitsync
+
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 
 import de.sciss.file._
 import scopt.OptionParser
@@ -9,11 +24,13 @@ import scala.util.Try
 
 object GitSync {
   case class Config(
-                   baseDir      : File         = file("base-dir"),
-                   maxDepth     : Int          = 2,
-                   aheadOnly    : Boolean      = false,
-                   behindOnly   : Boolean      = false,
-                   mainBranches : Seq[String]  = Seq("master", "work")
+                   baseDir      : File        = file("base-dir"),
+                   maxDepth     : Int         = 2,
+                   aheadOnly    : Boolean     = false,
+                   behindOnly   : Boolean     = false,
+                   listIgnored  : Boolean     = false,
+                   omitIgnored  : Seq[String] = Nil,
+                   mainBranches : Seq[String] = Seq("master", "work")
                    )
 
   def main(args: Array[String]): Unit = {
@@ -36,11 +53,19 @@ object GitSync {
       opt[Seq[String]]('r', "ref-branches")
         .text(s"Remote branches to compare against for local-only branches (default: ${default.mainBranches.mkString(",")})")
         .valueName("<name1>,<name2>...")
-        .action( (v, c) =>
-        c.copy(mainBranches = v) )
+        .action( (v, c) => c.copy(mainBranches = v) )
+      opt[Unit]('i', "list-ignored")
+        .text("Lists ignored files (except those given by `-x`)")
+        .action( (_, c) => c.copy(listIgnored = true) )
+      opt[Seq[String]]('x', "exclude-ignored")
+        .text("Specify files not included when using `-i`")
+        .valueName("<name1>,<name2>...")
+        .action( (v, c) => c.copy(omitIgnored = v, listIgnored = true) )
     }
     // println(s"DETECTED ARGS: ${args.mkString("[", ", ", "]")}")
-    parser.parse(args, default).fold(sys.exit(1))(run)
+    parser.parse(args, default).fold(sys.exit(1)) { config =>
+      run(config)
+    }
   }
 
   import sys.process._
@@ -123,8 +148,8 @@ object GitSync {
       else loop(file(left.name) / res.path, left.parentOption)
     }
 
-    val cf = loop(file(can.name), can.parentOption)
-    cf
+    if (can == base) file("")
+    else loop(file(can.name), can.parentOption)
   }
 
   private val swallow = ProcessLogger(_ => ())
@@ -246,5 +271,32 @@ object GitSync {
         })
       }
     })
+
+    if (config.listIgnored) checkIgnored(config, dir)
+  }
+
+  def checkIgnored(config: Config, dir: File): Unit = {
+    val children    = dir.children(f => !config.omitIgnored.contains(f.name))
+    val childNames  = children.map(_.name).mkString("\n")
+    val in          = new ByteArrayInputStream(childNames.getBytes("UTF-8"))
+    val out         = new ByteArrayOutputStream
+    val pb          = Process(Seq(git, "check-ignore", "--stdin"), dir).#<(in).#>(out)
+    val code        = pb.!
+    out.close()
+
+    def info(message: String): Unit = {
+      val dirR = relativize(config.baseDir, dir)
+      Console.out.println(s"$dirR - $message")
+    }
+
+    if (code == 0) {
+      val ignored = new String(out.toByteArray, "UTF-8").split("\n")
+      ignored.foreach { name =>
+        info(s"ignored: $name")
+      }
+
+    } else if (code != 1) {
+      info("Fatal error running git check-ignore")
+    }
   }
 }

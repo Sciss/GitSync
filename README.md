@@ -24,6 +24,9 @@ To get the options, simply type `sbt run`:
       -b, --behind-only        Ignore local branches that are ahead corresponding remote branches
       -r, --ref-branches <name1>,<name2>...
                                Remote branches to compare against for local-only branches (default: master,work)
+      -i, --list-ignored       Lists ignored files (except those given by `-x`)
+      -x, --exclude-ignored <name1>,<name2>...
+                               Specify files not included when using `-i`
 
 So for example, to scan for all branches that are out of sync:
 
