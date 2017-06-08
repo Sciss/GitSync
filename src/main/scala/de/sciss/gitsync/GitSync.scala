@@ -19,6 +19,7 @@ import de.sciss.file._
 import scopt.OptionParser
 
 import scala.annotation.tailrec
+import scala.collection.immutable.{IndexedSeq => Vec}
 import scala.collection.mutable
 import scala.util.Try
 
@@ -122,9 +123,12 @@ object GitSync {
     if (!seen.add(dir)) return
 
     val isRoot = (dir / ".git").isDirectory
-    if (isRoot) check(config, dir)
-    else if (depth <= config.maxDepth) {
-      val children = dir.children(_.isDirectory).sortBy(_.name.toLowerCase)
+    if (isRoot) {
+      check(config, dir)
+      if (config.listIgnored) checkIgnored(config, dir)
+    }
+    if (depth <= config.maxDepth) {
+      val children = nonGitChildDirectories(dir)
       children.foreach { sub =>
         loop(config, dir = sub, depth = depth + 1, seen = seen)
       }
@@ -271,32 +275,46 @@ object GitSync {
         })
       }
     })
-
-    if (config.listIgnored) checkIgnored(config, dir)
   }
 
+  def nonGitChildDirectories(parent: File): Vec[File] =
+    parent.children(f => f.isDirectory && f.name != ".git").sortBy(_.name.toLowerCase)
+
   def checkIgnored(config: Config, dir: File): Unit = {
-    val children    = dir.children(f => !config.omitIgnored.contains(f.name))
-    val childNames  = children.map(_.name).mkString("\n")
-    val in          = new ByteArrayInputStream(childNames.getBytes("UTF-8"))
-    val out         = new ByteArrayOutputStream
-    val pb          = Process(Seq(git, "check-ignore", "--stdin"), dir).#<(in).#>(out)
-    val code        = pb.!
-    out.close()
+    val seen = mutable.Set.empty[File]
 
-    def info(message: String): Unit = {
-      val dirR = relativize(config.baseDir, dir)
-      Console.out.println(s"$dirR - $message")
-    }
+    def loopIgnored(dir1: File, depth: Int): Unit = {
+      if (!seen.add(dir1)) return
 
-    if (code == 0) {
-      val ignored = new String(out.toByteArray, "UTF-8").split("\n")
-      ignored.foreach { name =>
-        info(s"ignored: $name")
+      val toCheck     = dir1.children(f => !config.omitIgnored.contains(f.name))
+      val toCheckNames= toCheck.map(_.name).mkString("\n")
+      val in          = new ByteArrayInputStream(toCheckNames.getBytes("UTF-8"))
+      val out         = new ByteArrayOutputStream
+      val pb          = Process(Seq(git, "check-ignore", "--stdin"), dir1).#<(in).#>(out)
+      val code        = pb.!
+      out.close()
+
+      def info(message: String): Unit = {
+        val dirR = relativize(config.baseDir, dir1)
+        Console.out.println(s"$dirR - $message")
       }
 
-    } else if (code != 1) {
-      info("Fatal error running git check-ignore")
+      if (code == 0) {
+        val ignored = new String(out.toByteArray, "UTF-8").split("\n")
+        ignored.foreach { name =>
+          info(s"ignored: $name")
+        }
+
+      } else if (code != 1) {
+        info("Fatal error running git check-ignore")
+      }
+
+      val children = nonGitChildDirectories(dir1)
+      children.foreach { sub =>
+        loopIgnored(dir1 = sub, depth = depth + 1)
+      }
     }
+
+    loopIgnored(dir1 = dir, depth = 0)
   }
 }
