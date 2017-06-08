@@ -1,5 +1,5 @@
 name               := "GitSync"
-version            := "0.2.0-SNAPSHOT"
+version            := "0.2.0"
 organization       := "de.sciss"
 scalaVersion       := "2.12.2"
 description        := "Scan directory for git repositories and report if they diverge from origin"

@@ -46,6 +46,19 @@ The second line means there are untracked files or uncommitted changes (you can 
 The third and fifth lines means local commits are ahead and haven't been pushed yet.
 The fourth line means it was not possible to determine the remote state (possibly the URL is outdated).
 
+My typical call for checking if a computer has source directories with crucial files not uploaded:
+
+    sbt "run -d ~/Documents/devel -a -m 3 -i -x target,.idea,.idea_modules"
+
+Using `-i` here means, I'm able to find files such as `_creation` which I have put into `.gitignore` so they
+do not end up in the public remote repository, but I may want to create a backup of them. Ignored files will be
+listed like this:
+
+    anemone_15b3c-video - ignored: conv_image_out
+    
+So the directory `conv_image_out` inside the repository `anemone_15b3c-video` contains stuff that I might need
+to copy if I want to wipe that repository.
+
 ## contributing
 
 Please see the file [CONTRIBUTING.md](CONTRIBUTING.md)
