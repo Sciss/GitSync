@@ -2,7 +2,7 @@
  *  GitSync.scala
  *  (GitSync)
  *
- *  Copyright (c) 2017 Hanns Holger Rutz. All rights reserved.
+ *  Copyright (c) 2017-2021 Hanns Holger Rutz. All rights reserved.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -31,7 +31,7 @@ object GitSync {
                    behindOnly   : Boolean     = false,
                    listIgnored  : Boolean     = false,
                    omitIgnored  : Seq[String] = Nil,
-                   mainBranches : Seq[String] = Seq("master", "work")
+                   mainBranches : Seq[String] = Seq("main", "work")
                    )
 
   def main(args: Array[String]): Unit = {
@@ -205,7 +205,7 @@ object GitSync {
           _ => { info("No remote repository found"); Nil },
           s => {
             // all will look like
-            // `Seq("origin/debug", "origin/master", "origin/plus_txn")`
+            // `Seq("origin/debug", "origin/main", "origin/plus_txn")`
             val all = s.split('\n').filter(ln => ln.nonEmpty && !ln.contains("->")).map(_.trim)
             all.filter { ref =>
               config.mainBranches.exists(ref.contains)
